@@ -1,0 +1,152 @@
+name: Validation
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'draft-*'
+      - 'feature/*'
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            validation/requirements.txt
+            pyproject.toml
+            validation/pyproject.toml
+
+      - name: Resolve working directory
+        id: paths
+        run: |
+          if [[ -d validation ]]; then
+            echo "workdir=validation" >> "$GITHUB_OUTPUT"
+          else
+            echo "workdir=." >> "$GITHUB_OUTPUT"
+          fi
+          echo "Resolved workdir:"
+          cat "$GITHUB_OUTPUT"
+
+      - name: Show runner context
+        run: |
+          python --version
+          pip --version
+          pwd
+          ls -la
+          echo "Using workdir=${{ steps.paths.outputs.workdir }}"
+          ls -la "${{ steps.paths.outputs.workdir }}"
+
+      - name: Install dependencies
+        working-directory: ${{ steps.paths.outputs.workdir }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip setuptools wheel
+          if [[ -f requirements.txt ]]; then
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt not found; skipping"
+          fi
+          if [[ -f pyproject.toml ]]; then
+            pip install .
+          fi
+          if [[ -f requirements-dev.txt ]]; then
+            pip install -r requirements-dev.txt
+          fi
+
+      - name: Prepare output directories
+        working-directory: ${{ steps.paths.outputs.workdir }}
+        run: |
+          mkdir -p output artifacts logs
+
+      - name: Run primary validation entrypoint
+        working-directory: ${{ steps.paths.outputs.workdir }}
+        run: |
+          set -euo pipefail
+          if [[ -f run_all.py ]]; then
+            python run_all.py 2>&1 | tee logs/run_all.log
+          else
+            echo "run_all.py not found; skipping" | tee logs/run_all.log
+          fi
+
+      - name: Run cygnet validation entrypoint
+        working-directory: ${{ steps.paths.outputs.workdir }}
+        run: |
+          set -euo pipefail
+          if [[ -f run_cygnet_validation.py ]]; then
+            python run_cygnet_validation.py 2>&1 | tee logs/run_cygnet_validation.log
+          else
+            echo "run_cygnet_validation.py not found; skipping" | tee logs/run_cygnet_validation.log
+          fi
+
+      - name: Run pytest
+        working-directory: ${{ steps.paths.outputs.workdir }}
+        run: |
+          set -euo pipefail
+          if [[ -d tests ]] || [[ -f pytest.ini ]]; then
+            pytest -q 2>&1 | tee logs/pytest.log
+          else
+            echo "pytest inputs not found; skipping" | tee logs/pytest.log
+          fi
+
+      - name: Inventory generated files
+        if: always()
+        working-directory: ${{ steps.paths.outputs.workdir }}
+        run: |
+          {
+            echo "## output"
+            find output -maxdepth 4 -type f 2>/dev/null | sort || true
+            echo
+            echo "## artifacts"
+            find artifacts -maxdepth 4 -type f 2>/dev/null | sort || true
+            echo
+            echo "## logs"
+            find logs -maxdepth 4 -type f 2>/dev/null | sort || true
+            echo
+            echo "## top-level evidence"
+            find . -maxdepth 1 \\( -name 'CLAIM\_PROVENANCE.md' -o -name 'priorart\_\*.md' \\) -type f | sort || true
+          } | tee logs/inventory.log
+
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-artifacts-${{ github.run_number }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            ${{ steps.paths.outputs.workdir }}/output/**
+            ${{ steps.paths.outputs.workdir }}/artifacts/**
+            ${{ steps.paths.outputs.workdir }}/logs/**
+            ${{ steps.paths.outputs.workdir }}/CLAIM_PROVENANCE.md
+            ${{ steps.paths.outputs.workdir }}/priorart_*.md
+
+      - name: Upload vectors snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-vectors-${{ github.run_number }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ steps.paths.outputs.workdir }}/vectors/**
