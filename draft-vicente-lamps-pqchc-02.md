@@ -28,7 +28,7 @@ author:
  -
     fullname: Brian Vicente
     organization: Sanctum SecOps LLC
-    email: brian@sanctumsecops.com
+    email: brian@sanctumsecops.io
 
 normative:
   RFC2119:
