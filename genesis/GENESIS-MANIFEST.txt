@@ -1,0 +1,6 @@
+=== Sanctum PEN Genesis manifest 2026-06-25T01:23:03Z ===
+597301928e572e48691ccfb160370503d2ea6111f179cdefdb7a577507efa72f  pen-pqc-ta.crt
+990c4ceb885959e54baa30dd9cd694915d1e83984eea33a83149121f6c6acddf  pen-pqc-ee.crt
+6d20e1e9be6f0c16e4e94b8bd6dc586cb9debc35edf347b54c965369b7dbf3d0  pen-cmp-ta-full.der
+191e6f9da7064e259aa366c1bb329e95cee06c98620334fcfaa16a3b817715a5  pen-cmp-ee-full.der
+PEN 1.3.6.1.4.1.65953 | composite OID 1.3.6.1.5.5.7.6.41
