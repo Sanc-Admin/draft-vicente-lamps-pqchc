@@ -10,6 +10,9 @@ on:
       - 'genesis/**'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   validate-cygnet-certs:
     name: Validate Genesis Cygnet Certificates
@@ -17,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Install OpenSSL tools
         run: |
@@ -106,7 +109,6 @@ jobs:
           def parse_cert(path, fmt='pem'):
               print(f"\n--- Parsing: {path} ---")
               try:
-                  # Convert to DER bytes via openssl for uniform handling
                   if fmt == 'pem':
                       raw = subprocess.check_output(
                           ['openssl', 'x509', '-in', path, '-outform', 'DER'],
@@ -117,21 +119,18 @@ jobs:
                           raw = f.read()
 
                   cert, _ = der_decoder.decode(raw, asn1Spec=univ.Sequence())
-                  tbs = cert[0]         # TBSCertificate
-                  extensions = tbs[7]   # Extensions (index 7 for v3)
+                  tbs = cert[0]
+                  extensions = tbs[7]
 
                   pqchc_found = False
                   ext_count = 0
 
-                  # Walk extensions
                   for ext in extensions:
                       oid_val = str(ext[0])
                       ext_count += 1
                       if oid_val == PQCHC_OID:
                           pqchc_found = True
                           print(f"  ✅ PQCHC extension FOUND: OID={oid_val}")
-                          # ext[2] is the OCTET STRING value if critical flag present
-                          # ext[1] is critical BOOLEAN or OCTET STRING depending on structure
                           print(f"     Extension value bytes: {bytes(ext[-1]).hex()[:64]}...")
                           RESULTS.append((path, 'PASS', 'PQCHC OID present'))
                       else:
@@ -143,7 +142,7 @@ jobs:
                       RESULTS.append((path, 'INFO', 'PQCHC OID not present'))
 
               except Exception as e:
-                  print(f"  ⚠️  Parse warning: {e} (cert may use non-standard structure or PQC algo not fully decodable)")
+                  print(f"  ⚠️  Parse warning: {e}")
                   RESULTS.append((path, 'WARN', str(e)))
 
           parse_cert('genesis/pen-pqc-ta.crt',      'pem')
@@ -160,7 +159,7 @@ jobs:
                   all_ok = False
 
           print("\n✅ Cygnet genesis cert validation complete." if all_ok else "\n⚠️  Some certs produced warnings — review above.")
-          sys.exit(0)  # Non-fatal: genesis certs may predate PQCHC extension
+          sys.exit(0)
           PYEOF
 
       # -------------------------------------------------------
