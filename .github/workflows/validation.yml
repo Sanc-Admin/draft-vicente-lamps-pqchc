@@ -29,13 +29,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: |
-            requirements.txt
-            validation/requirements.txt
-            pyproject.toml
-            validation/pyproject.toml
+          python-version: '3.12'
 
       - name: Resolve working directory
         id: paths
@@ -113,6 +107,7 @@ jobs:
         if: always()
         working-directory: ${{ steps.paths.outputs.workdir }}
         run: |
+          mkdir -p output artifacts logs
           {
             echo "## output"
             find output -maxdepth 4 -type f 2>/dev/null | sort || true
@@ -124,7 +119,7 @@ jobs:
             find logs -maxdepth 4 -type f 2>/dev/null | sort || true
             echo
             echo "## top-level evidence"
-            find . -maxdepth 1 \\( -name 'CLAIM\_PROVENANCE.md' -o -name 'priorart\_\*.md' \\) -type f | sort || true
+            find . -maxdepth 1 \( -name 'CLAIM_PROVENANCE.md' -o -name 'priorart_*.md' \) -type f | sort || true
           } | tee logs/inventory.log
 
       - name: Upload validation artifacts
