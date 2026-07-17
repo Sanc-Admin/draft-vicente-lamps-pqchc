@@ -16,7 +16,7 @@ env:
 jobs:
   validate-cygnet-certs:
     name: Validate Genesis Cygnet Certificates
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, ARM64]
 
     steps:
       - name: Checkout repository
